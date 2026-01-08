@@ -574,33 +574,28 @@ if mls_file and cama_file:
         # Match rate by city
         st.subheader("Match Rate by City")
         
-        # Get city information from matched records
-        # Check for city column - could be 'City' in MLS or 'CITYNAME' in CAMA
-        city_col_name = None
-        if 'City' in matched_df.columns:
-            city_col_name = 'City'
-        elif 'CITYNAME' in matched_df.columns:
-            city_col_name = 'CITYNAME'
+        # Determine which city column to use - prefer CAMA's city column
+        cama_city_col = None
+        if 'CITYNAME' in df_cama.columns:
+            cama_city_col = 'CITYNAME'
+        elif 'City' in df_cama.columns:
+            cama_city_col = 'City'
         
-        if city_col_name and not matched_df.empty:
-            # Create city match statistics
+        if cama_city_col and not matched_df.empty:
+            # Get CAMA ID column
             cama_id_col = UNIQUE_ID_COLUMN.get('cama_col')
             
-            # Check if CAMA has city info
-            cama_city_col = None
-            if 'City' in df_cama.columns:
-                cama_city_col = 'City'
-            elif 'CITYNAME' in df_cama.columns:
-                cama_city_col = 'CITYNAME'
-            
-            if cama_city_col:
-                # Use CAMA city data for comprehensive statistics
+            # Check if the city column exists in matched_df (it should since it came from CAMA)
+            if cama_city_col in matched_df.columns:
+                # Get total CAMA parcels by city
                 cama_cities = df_cama.groupby(cama_city_col)[cama_id_col].count().reset_index()
                 cama_cities.columns = ['City', 'Total_CAMA_Parcels']
                 
-                matched_cities = matched_df.groupby(city_col_name)[cama_id_col].count().reset_index()
+                # Get matched parcels by city (use the same city column)
+                matched_cities = matched_df.groupby(cama_city_col)[cama_id_col].count().reset_index()
                 matched_cities.columns = ['City', 'Matched_Parcels']
                 
+                # Merge the two dataframes
                 city_comparison = pd.merge(cama_cities, matched_cities, on='City', how='left')
                 city_comparison['Matched_Parcels'] = city_comparison['Matched_Parcels'].fillna(0).astype(int)
                 city_comparison['Match_Rate'] = (city_comparison['Matched_Parcels'] / city_comparison['Total_CAMA_Parcels'] * 100).round(2)
@@ -637,15 +632,17 @@ if mls_file and cama_file:
                     st.markdown("**Match Rate by City (Top 10)**")
                     match_rate_chart = top_cities[['City', 'Match_Rate']].set_index('City')
                     st.bar_chart(match_rate_chart)
-                
             else:
-                # If CAMA doesn't have City, use matched data only
-                matched_cities = matched_df.groupby(city_col_name)[cama_id_col].count().reset_index()
-                matched_cities.columns = ['City', 'Matched_Parcels']
-                matched_cities = matched_cities.sort_values('Matched_Parcels', ascending=False)
-                
-                st.info("ℹ️ City breakdown only available for matched parcels (CAMA data does not include City field)")
-                st.dataframe(matched_cities, use_container_width=True, hide_index=True)
+                # City column from CAMA not in matched data - try using MLS city
+                if 'City' in matched_df.columns:
+                    matched_cities = matched_df.groupby('City')[cama_id_col].count().reset_index()
+                    matched_cities.columns = ['City', 'Matched_Parcels']
+                    matched_cities = matched_cities.sort_values('Matched_Parcels', ascending=False)
+                    
+                    st.info("ℹ️ City breakdown based on MLS city data (CAMA city field not available in matched records)")
+                    st.dataframe(matched_cities, use_container_width=True, hide_index=True)
+                else:
+                    st.warning("⚠️ City information not available in matched records")
         else:
             st.info("ℹ️ City information not available in the data")
         
