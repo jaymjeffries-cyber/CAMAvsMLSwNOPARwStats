@@ -575,19 +575,30 @@ if mls_file and cama_file:
         st.subheader("Match Rate by City")
         
         # Get city information from matched records
-        if not matched_df.empty and 'City' in matched_df.columns:
+        # Check for city column - could be 'City' in MLS or 'CITYNAME' in CAMA
+        city_col_name = None
+        if 'City' in matched_df.columns:
+            city_col_name = 'City'
+        elif 'CITYNAME' in matched_df.columns:
+            city_col_name = 'CITYNAME'
+        
+        if city_col_name and not matched_df.empty:
             # Create city match statistics
-            city_stats = []
-            
-            # For each city in CAMA data, calculate match rate
             cama_id_col = UNIQUE_ID_COLUMN.get('cama_col')
             
-            # If CAMA has city info, use it; otherwise try to get from matched records
+            # Check if CAMA has city info
+            cama_city_col = None
             if 'City' in df_cama.columns:
-                cama_cities = df_cama.groupby('City')[cama_id_col].count().reset_index()
+                cama_city_col = 'City'
+            elif 'CITYNAME' in df_cama.columns:
+                cama_city_col = 'CITYNAME'
+            
+            if cama_city_col:
+                # Use CAMA city data for comprehensive statistics
+                cama_cities = df_cama.groupby(cama_city_col)[cama_id_col].count().reset_index()
                 cama_cities.columns = ['City', 'Total_CAMA_Parcels']
                 
-                matched_cities = matched_df.groupby('City')[cama_id_col].count().reset_index()
+                matched_cities = matched_df.groupby(city_col_name)[cama_id_col].count().reset_index()
                 matched_cities.columns = ['City', 'Matched_Parcels']
                 
                 city_comparison = pd.merge(cama_cities, matched_cities, on='City', how='left')
@@ -629,7 +640,7 @@ if mls_file and cama_file:
                 
             else:
                 # If CAMA doesn't have City, use matched data only
-                matched_cities = matched_df.groupby('City')[cama_id_col].count().reset_index()
+                matched_cities = matched_df.groupby(city_col_name)[cama_id_col].count().reset_index()
                 matched_cities.columns = ['City', 'Matched_Parcels']
                 matched_cities = matched_cities.sort_values('Matched_Parcels', ascending=False)
                 
@@ -740,6 +751,7 @@ else:
         ### CAMA Data Expected Columns:
         - `PARID` (unique identifier)
         - `NOPAR`
+        - `CITYNAME` (or `City`) - for city-level statistics
         - `SFLA`
         - `RMBED`
         - `FIXBATH`
@@ -747,6 +759,9 @@ else:
         - `RECROMAREA`, `FINBSMTAREA`, `UFEATAREA`
         - `HEAT`
         - `SALEKEY`
+        
+        **Note**: The app automatically detects whether your CAMA data uses 
+        `CITYNAME` or `City` for the city column.
         """)
 
 # Footer

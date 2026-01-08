@@ -90,6 +90,7 @@ The app will open in your browser at `http://localhost:8501`
 ### CAMA Data Columns
 - `PARID` - Unique identifier
 - `NOPAR` - Additional identifier
+- `CITYNAME` (or `City`) - City name for statistics
 - `SFLA` - Square feet living area
 - `RMBED` - Bedrooms
 - `FIXBATH` - Full bathrooms
